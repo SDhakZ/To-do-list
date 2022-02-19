@@ -1,13 +1,16 @@
 const express = require('express');
 const app = express();
-const items = ["Start Day", "Breakfast"];
 var _ = require('lodash')
 const mongoose = require('mongoose')
 
+app.set('view engine', 'ejs');
 mongoose.connect("mongodb+srv://sharnam:Sharnam12345@cluster0.5denf.mongodb.net/todolistDB");
-const itemsSchema = new mongoose.Schema({
+app.use(express.urlencoded({
+    extended: true
+}))
+const itemsSchema = {
     name: String
-})
+}
 
 const Item = mongoose.model("Item", itemsSchema);
 
@@ -23,16 +26,16 @@ const item3 = new Item({
     name: "<-- Hit this to remove item"
 })
 
-const defaultItem = [item1, item2, item3];
+const defaultItems = [item1, item2, item3];
 const listSchema = {
     name: String,
     items: [itemsSchema]
 }
 
-const List = mongoose.model("List", listSchema)
+const List = mongoose.model("List", listSchema);
 
 
-app.set('view engine', 'ejs');
+
 
 app.use(express.static("public"));
 let port = process.env.PORT;
@@ -44,62 +47,70 @@ app.listen(port, function () {
     console.log("It is running on port 3000")
 })
 
-app.use(express.urlencoded({
-    extended: true
-}))
-
-app.get('/', function (req, res) {
 
 
-    Item.find(function (err, foundItems) {
+app.get("/", function (req, res) {
+
+    Item.find({}, function (err, foundItems) {
+
         if (foundItems.length === 0) {
-            Item.insertMany(defaultItem, function (err) {
+            Item.insertMany(defaultItems, function (err) {
                 if (err) {
-                    console.log(err)
+                    console.log(err);
                 } else {
-                    console.log("Succesfully added items")
+                    console.log("Successfully savevd default items to DB.");
                 }
-            })
-            res.redirect("/")
+            });
+            res.redirect("/");
         } else {
             res.render("list", {
                 listTitle: "Today",
                 newListItems: foundItems
             });
         }
-    })
-})
+    });
+
+});
 
 app.get("/:customListName", function (req, res) {
     const customListName = _.capitalize(req.params.customListName);
+
     List.findOne({
         name: customListName
     }, function (err, foundList) {
         if (!err) {
             if (!foundList) {
+                //Create a new list
                 const list = new List({
                     name: customListName,
-                    items: defaultItem
+                    items: defaultItems
                 });
-                list.save();
-                res.redirect("/" + customListName)
+                list.save(function () {
+                    res.redirect("/" + customListName);
+                });
             } else {
+                //Show an existing list
+
                 res.render("list", {
                     listTitle: foundList.name,
                     newListItems: foundList.items
                 });
             }
         }
-    })
-})
+    });
 
-app.post('/', function (req, res) {
+
+
+});
+
+app.post("/", function (req, res) {
+
     const itemName = req.body.newItem;
     const listName = req.body.list;
 
     const item = new Item({
-        name: itemName,
-    })
+        name: itemName
+    });
 
     if (listName === "Today") {
         item.save();
@@ -110,22 +121,22 @@ app.post('/', function (req, res) {
         }, function (err, foundList) {
             foundList.items.push(item);
             foundList.save();
-            res.redirect("/" + listName)
-        })
+            res.redirect("/" + listName);
+        });
     }
+});
 
-})
-
-app.post('/delete', function (req, res) {
+app.post("/delete", function (req, res) {
     const checkedItemId = req.body.checkbox;
     const listName = req.body.listName;
+
     if (listName === "Today") {
-        Item.findOneAndRemove(checkedItemId, function (err) {
+        Item.findByIdAndRemove(checkedItemId, function (err) {
             if (!err) {
-                console.log("Successfully deleted")
+                console.log("Successfully deleted checked item.");
                 res.redirect("/");
             }
-        })
+        });
     } else {
         List.findOneAndUpdate({
             name: listName
@@ -135,12 +146,12 @@ app.post('/delete', function (req, res) {
                     _id: checkedItemId
                 }
             }
-        }, function (err, listName) {
+        }, function (err, foundList) {
             if (!err) {
                 res.redirect("/" + listName);
             }
-        })
+        });
     }
 
 
-})
+});
