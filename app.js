@@ -135,7 +135,7 @@ app.post('/delete', function (req, res) {
                     _id: checkedItemId
                 }
             }
-        }, function (err, foundList) {
+        }, function (err, listName) {
             if (!err) {
                 res.redirect("/" + listName);
             }
